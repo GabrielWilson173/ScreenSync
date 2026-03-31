@@ -1,0 +1,14 @@
+{
+  "devDependencies": {
+    "concurrently": "^9.2.1"
+  },
+  "scripts": {
+    "seed": "node backend/src/setupDB.js",
+    "start:backend": "node backend/src/app.js",
+    "start:frontend": "npm start --prefix frontend",
+    "start": "concurrently \"npm run seed\" \"npm run start:backend\" \"npm run start:frontend\""
+  },
+  "dependencies": {
+    "multer": "^2.0.2"
+  }
+}
