@@ -14,7 +14,7 @@ def registerUser(username: str, hashed_password: str, user_uuid: str):
         conn.commit()
 
 #Get the stored hash of the user's password.
-def getHashedPasswordOfUser(username: str):
+def getUserInfo(username: str):
     with sqlite3.connect(DB_PATH) as conn:
         conn.row_factory = sqlite3.Row
         cursor = conn.cursor()
