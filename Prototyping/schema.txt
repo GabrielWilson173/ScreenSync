@@ -1,0 +1,10 @@
+CREATE TABLE Users (
+                username TEXT UNIQUE,
+                password_hash TEXT,
+                uuid CHAR(36) PRIMARY KEY
+            );
+CREATE TABLE User_data (
+                uuid CHAR(36),
+                data TEXT,
+                FOREIGN KEY (uuid) REFERENCES Users (uuid)
+            );
