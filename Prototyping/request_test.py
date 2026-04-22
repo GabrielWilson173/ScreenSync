@@ -1,22 +1,34 @@
-"""File to test sending requests via the api"""
-
 import requests
 
-ACCEPT = 200
-
-#Here we are sending a login post request with the additional payload of the username and password.
-request = "http://localhost:8000/Login/"
-payload = {
+URL = "http://127.0.0.1:8000"
+login_payload = {
     "username": "user",
     "password": "Thisisapassword",
 }
 
-#Use the requests pip package to send the request
-response = requests.post(request, json=payload)
+# 1. Login to get the token
+response = requests.post(f"{URL}/Login/", json=login_payload)
 
-#If the request was successful
-if response.status_code == 200:
-    print(response.json())
-#If the request has an error code
+if response.status_code != 200:
+    print(f"Login Failed: {response.status_code} - {response.text}")
 else:
-    print(response.status_code)
+    # login_data contains {"access_token": "...", "token_type": "bearer"}
+    login_data = response.json()
+    token = login_data["access_token"]
+    
+    # 2. Format the header correctly for the next request
+    headers = {
+        "Authorization": f"Bearer {token}"
+    }
+
+    payload = {
+        "Discord" : 50,
+        "Chrome" : 100  
+    }
+    # 3. Send the data to DataTest with the correctly formatted header
+    response = requests.post(f"{URL}/Screentime/Add", json=payload, headers=headers)
+
+    if response.status_code == 200:
+        print(response.json())
+    else:
+        print(f"Data Sync Failed: {response.status_code} - {response.text}")

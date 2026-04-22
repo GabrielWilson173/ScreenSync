@@ -25,3 +25,25 @@ def getUserInfo(username: str):
             return {"Password": user["password_hash"], "uuid": user["uuid"]}
         else:
             raise Exception("User not found")
+
+def insertScreenTime(uuid: str, app_name: str, screentime: float):
+    with sqlite3.connect(DB_PATH) as conn:
+        cursor = conn.cursor()
+        cursor.execute("INSERT INTO Screentime (uuid, app_name, seconds_spent) VALUES (?, ?, ?) ON CONFLICT (uuid, app_name) DO UPDATE SET seconds_spent = Screentime.seconds_spent + EXCLUDED.seconds_spent, last_updated = CURRENT_TIMESTAMP;", (uuid, app_name, screentime))
+        conn.commit()
+
+def getScreenTime(uuid):
+    with sqlite3.connect(DB_PATH) as conn:
+        conn.row_factory = sqlite3.Row
+        cursor = conn.cursor()
+        cursor.execute("SELECT * FROM Screentime WHERE uuid=?", (uuid,))
+        screentime = cursor.fetchall()
+        
+        if screentime:
+            data = []
+            for app in screentime:
+                data.append({"app_name": app["app_name"], "seconds": app["seconds_spent"]})
+            return data
+        else:
+            raise Exception("No screentime for that user")
+

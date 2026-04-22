@@ -3,6 +3,7 @@ import './App.css';
 import HomePage from './Pages/HomePage';
 import LoginPage from './Pages/LoginPage';
 import WelcomePage from './Pages/WelcomePage';
+import { API_URL } from "./config"
 
 function App() {
   const [hashRoute, setHashRoute] = useState(window.location.hash || '#/welcome');
@@ -20,9 +21,29 @@ function App() {
     return () => window.removeEventListener('hashchange', handleHashChange);
   }, []);
 
-  const handleLoginSubmit = (event) => {
-    event.preventDefault();
-    window.location.hash = '#/home';
+  const handleLoginSubmit = async (username, password) => {
+    try {
+      const response = await fetch(`${API_URL}/Login`, {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({ username, password }),
+      });
+      
+      if (response.ok) {
+        const data = await response.json();
+        console.log("Success:", data);
+        localStorage.setItem('access_token', data.access_token);
+        localStorage.setItem('token_type', data.token_type);
+        window.location.hash = '#/home';
+      } else {
+        alert("Username or password is not correct");
+      }
+    } catch (error) {
+      console.error("Error connecting to backend:", error);
+      alert("Backend is offline or unreachable.");
+    }
   };
 
   const renderPage = () => {
