@@ -1,4 +1,5 @@
 import sqlite3
+from typing import Any
 
 DB_PATH = "Database/ScreenTimeDB.db"
 
@@ -8,7 +9,7 @@ def registerUser(username: str, hashed_password: str, user_uuid: str):
     with sqlite3.connect(DB_PATH) as conn:
         cursor = conn.cursor()
         cursor.execute(
-            "INSERT INTO Users (username, password_hash, uuid) VALUES (?, ?, ?)", 
+            "INSERT INTO Users (username, password_hash, uuid) VALUES (?, ?, ?)",
             (username, hashed_password, user_uuid)
         )
         conn.commit()
@@ -20,7 +21,7 @@ def getUserInfo(username: str):
         cursor = conn.cursor()
         cursor.execute("SELECT password_hash, uuid FROM Users WHERE username=?", (username,))
         user = cursor.fetchone()
-        
+
         if user:
             return {"Password": user["password_hash"], "uuid": user["uuid"]}
         else:
@@ -68,7 +69,7 @@ def getScreenTime(uuid):
         cursor = conn.cursor()
         cursor.execute("SELECT * FROM Screentime WHERE uuid=?", (uuid,))
         screentime = cursor.fetchall()
-        
+
         if screentime:
             data = []
             for app in screentime:
@@ -77,3 +78,59 @@ def getScreenTime(uuid):
         else:
             raise Exception("No screentime for that user")
 
+def getCredits(uuid: str) -> float:
+    with sqlite3.connect(DB_PATH) as conn:
+        conn.row_factory = sqlite3.Row
+        cursor = conn.cursor()
+        cursor.execute("SELECT credits FROM UserCredits WHERE uuid=?", (uuid,))
+        credits = cursor.fetchone()
+
+        if credits:
+            return credits["credits"]
+        else:
+            return 0.0
+
+def updateCredits(uuid: str, credits: float) -> None:
+    with sqlite3.connect(DB_PATH) as conn:
+        cursor = conn.cursor()
+        cursor.execute("INSERT INTO UserCredits (uuid, credits) VALUES (?, ?) ON CONFLICT (uuid) DO UPDATE SET credits = UserCredits.credits + EXCLUDED.credits;", (uuid, credits))
+        conn.commit()
+
+def getEarnedCredits(uuid: str, until_time: int) -> float:
+    with sqlite3.connect(DB_PATH) as conn:
+        conn.row_factory = sqlite3.Row
+        cursor = conn.cursor()
+        cursor.execute("SELECT * FROM EarnedCredits WHERE uuid=? AND time_to_award <= ?", (uuid, until_time))
+        credits = cursor.fetchall()
+
+        if credits:
+            earned_credits = 0.0
+            for credit in credits:
+                earned_credits += credit["credits"]
+            return earned_credits
+        else:
+            raise Exception("No earned credits for that user")
+
+def addEarnedCredits(uuid: str, credits: float, time_to_award: int) -> None:
+    with sqlite3.connect(DB_PATH) as conn:
+        cursor = conn.cursor()
+        cursor.execute("INSERT INTO EarnedCredits (uuid, time_to_award, credits) VALUES (?, ?, ?) ON CONFLICT (uuid, time_to_award) DO UPDATE SET credits = EarnedCredits.credits + EXCLUDED.credits;", (uuid, time_to_award, credits))
+        conn.commit()
+
+def deleteEarnedCredits(uuid: str, until_time: int) -> None:
+    with sqlite3.connect(DB_PATH) as conn:
+        cursor = conn.cursor()
+        cursor.execute("DELETE FROM EarnedCredits WHERE uuid=? AND time_to_award <= ?", (uuid, until_time))
+        conn.commit()
+
+def getCreditsRate(uuid: str, app_name: str) -> dict[str, Any]:
+    with sqlite3.connect(DB_PATH) as conn:
+        conn.row_factory = sqlite3.Row
+        cursor = conn.cursor()
+        cursor.execute("SELECT * FROM CreditsRate WHERE uuid=? AND app_name=?", (uuid, app_name))
+        rate = cursor.fetchone()
+
+        if rate:
+            return {"cost_rate": rate["cost_rate"], "earn_rate": rate["earn_rate"], "earn_delay": rate["earn_delay"]}
+        else:
+            raise Exception("No credit rates for that user and app")
