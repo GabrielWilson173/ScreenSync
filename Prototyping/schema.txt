@@ -8,10 +8,17 @@ CREATE TABLE User_data (
                 data TEXT,
                 FOREIGN KEY (uuid) REFERENCES Users (uuid)
             );
-CREATE TABLE Screentime (
+CREATE TABLE Screentime(
     uuid CHAR(36),
+    hwid CHAR(36),
     app_name TEXT,
     seconds_spent FLOAT,
     last_updated TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
-    PRIMARY KEY (uuid, app_name) -- This joins them into one unique identifier
+    PRIMARY KEY (uuid, hwid, app_name)
+);
+CREATE TABLE devices(
+    uuid CHAR(36),
+    hwid CHAR(36),
+    device_num INT,
+    PRIMARY KEY (uuid, hwid)
 );

@@ -22,11 +22,15 @@ else:
     }
 
     payload = {
-        "Discord" : 50,
-        "Chrome" : 100  
+        "data": 
+        {
+            "Discord" : 50,
+            "Chrome" : 100  
+        },
+        "hwid": "Testing_2"
     }
     # 3. Send the data to DataTest with the correctly formatted header
-    response = requests.post(f"{URL}/Screentime/Add", json=payload, headers=headers)
+    response = requests.get(f"{URL}/Screentime/Get", json=payload, headers=headers)
 
     if response.status_code == 200:
         print(response.json())

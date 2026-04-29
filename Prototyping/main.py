@@ -5,11 +5,12 @@ from pydantic import BaseModel
 from pwdlib import PasswordHash
 from uuid import uuid4
 from jwt import encode, decode, PyJWTError
-from Database.Database_Access import registerUser, getUserInfo, insertScreenTime, getScreenTime
+from Database.Database_Access import registerUser, getUserInfo, insertScreenTime, getScreenTime, getDeviceNum
 from datetime import datetime, timedelta, timezone
 
 app = FastAPI()
 
+#This needs to stay secret. There are probably better ways to store the secret key than this but we don't have time to fix it.
 SECRET_KEY = "SECRET_KEY"
 
 app.add_middleware(
@@ -23,6 +24,10 @@ app.add_middleware(
 class User(BaseModel):
     username: str
     password: str
+
+class ScreenTimeData(BaseModel):
+    data: dict[str,float]
+    hwid: str
 
 #Use a password hashing algorithm that automatically salts the hash to prevent brute force attacks on passwords
 password_hasher = PasswordHash.recommended()
@@ -43,7 +48,6 @@ def Create_Token(uuid: str):
 
 def Get_Current_User_Uuid(token: str = Depends(oauth2_scheme)):
     try:
-        # Decode using your global SECRET_KEY and the specific key "uuid"
         payload = decode(token, SECRET_KEY, algorithms=["HS256"])
         user_uuid = payload.get("uuid")
         
@@ -101,9 +105,17 @@ async def Login(user: User):
         raise HTTPException(status_code=401, detail="Invalid username or password")
     
 @app.post("/Screentime/Add")
-async def Add_Screentime(data: dict[str,float], uuid = Depends(Get_Current_User_Uuid)):
+async def Add_Screentime(screentime_data: ScreenTimeData, uuid = Depends(Get_Current_User_Uuid)):
+    data = screentime_data.data
+    hwid = screentime_data.hwid
+
+    device_num = getDeviceNum(uuid, hwid)
+
+    if not device_num:
+        raise Exception("could not get device number")
+
     for app_name, seconds in data.items():
-        insertScreenTime(uuid, app_name, seconds)
+        insertScreenTime(uuid, device_num, app_name, seconds)
 
 @app.get("/Screentime/Get")
 async def Get_Screentime(uuid = Depends(Get_Current_User_Uuid)):
