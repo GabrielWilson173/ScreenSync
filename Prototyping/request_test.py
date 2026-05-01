@@ -24,8 +24,8 @@ else:
     payload = {
         "data": 
         {
-            "Discord" : 50,
-            "Chrome" : 100  
+            "DISCORD" : 50,
+            "CHROME" : 100  
         },
         "hwid": "Testing_2"
     }

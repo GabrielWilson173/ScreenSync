@@ -115,13 +115,25 @@ async def Add_Screentime(screentime_data: ScreenTimeData, uuid = Depends(Get_Cur
 
     if not device_num:
         raise Exception("could not get device number")
+    
 
     for app_name, seconds in data.items():
-        insertScreenTime(uuid, device_num, app_name, seconds)
+        capitalized_name = app_name.capitalize()
+        insertScreenTime(uuid, device_num, capitalized_name, seconds)
 
 @app.get("/Screentime/Get")
 async def Get_Screentime(uuid = Depends(Get_Current_User_Uuid)):
-    return getScreenTime(uuid)
+    screentime = getScreenTime(uuid)
+    formatted_screentime = {}
+    for data in screentime:
+        device_num = data["device_number"]
+        
+        if device_num not in formatted_screentime:
+            formatted_screentime[device_num] = []
+
+        formatted_screentime[device_num].append({"app_name": data["app_name"], "seconds": data["seconds"]})
+
+    return formatted_screentime
 
 @app.get("/Credits/Get")
 async def Get_Credits(uuid = Depends(Get_Current_User_Uuid)):
