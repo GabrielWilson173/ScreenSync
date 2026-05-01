@@ -2,7 +2,7 @@ import { useState, useEffect } from 'react';
 import PageShell from '../components/PageShell';
 
 function HomePage() {
-  const [screenTimeData, setScreenTimeData] = useState([]);
+  const [screenTimeData, setScreenTimeData] = useState({});
   const [error, setError] = useState(null);
 
   useEffect(() => {
@@ -23,26 +23,41 @@ function HomePage() {
         }
 
         const data = await response.json();
-        // Backend may return grouped data like { deviceNum: [entries] }
-        // Normalize to a flat array for the UI to consume.
-        let flattened = [];
+        // Keep the data grouped by device for the UI: { device: [entries] }.
+        let groupedByDevice = {};
 
         if (Array.isArray(data)) {
-          flattened = data;
+          groupedByDevice = data.reduce((acc, item) => {
+            if (!item || typeof item !== 'object') return acc;
+
+            const device = item.device_number ?? item.deviceNum ?? item.device ?? 'Unknown';
+            if (!acc[device]) {
+              acc[device] = [];
+            }
+
+            acc[device].push({
+              app_name: item.app_name,
+              seconds: item.seconds,
+            });
+
+            return acc;
+          }, {});
         } else if (data && typeof data === 'object') {
-          try {
-            flattened = Object.values(data).flat();
-          } catch (e) {
-            // Fallback: if values are not arrays, attempt to collect entries
-            flattened = Object.values(data).reduce((acc, v) => {
-              if (Array.isArray(v)) return acc.concat(v);
-              if (v && typeof v === 'object') return acc.concat(v);
-              return acc;
-            }, []);
-          }
+          groupedByDevice = Object.entries(data).reduce((acc, [device, entries]) => {
+            if (!Array.isArray(entries)) return acc;
+
+            acc[device] = entries
+              .filter((entry) => entry && typeof entry === 'object')
+              .map((entry) => ({
+                app_name: entry.app_name,
+                seconds: entry.seconds,
+              }));
+
+            return acc;
+          }, {});
         }
 
-        setScreenTimeData(flattened);
+        setScreenTimeData(groupedByDevice);
       } catch (err) {
         setError(err.message);
       }
@@ -51,10 +66,14 @@ function HomePage() {
     fetchData();
   }, []);
 
-  const totalSeconds = screenTimeData.reduce(
+  const flattenedEntries = Object.values(screenTimeData).flat();
+
+  const totalSeconds = flattenedEntries.reduce(
     (sum, item) => sum + Number(item.seconds || 0),
     0
   );
+
+  const deviceCount = Object.keys(screenTimeData).length;
 
   return (
     <PageShell
@@ -71,7 +90,11 @@ function HomePage() {
         <div className="stats-row">
           <div>
             <span className="info-label">Tracked apps</span>
-            <strong>{screenTimeData.length}</strong>
+            <strong>{flattenedEntries.length}</strong>
+          </div>
+          <div>
+            <span className="info-label">Tracked devices</span>
+            <strong>{deviceCount}</strong>
           </div>
           <div>
             <span className="info-label">Total time</span>
@@ -82,15 +105,23 @@ function HomePage() {
         {error && <p className="error-text">{error}</p>}
 
         <div className="data-container">
-          {screenTimeData.length > 0 ? (
-            <ul className="screen-list">
-              {screenTimeData.map((item, index) => (
-                <li key={index} className="screen-list-item">
-                  <span>{item.app_name}</span>
-                  <strong>{Number(item.seconds || 0).toFixed(2)} seconds</strong>
-                </li>
+          {flattenedEntries.length > 0 ? (
+            <div className="screen-list">
+              {Object.entries(screenTimeData).map(([device, entries]) => (
+                <section key={device} className="info-tile">
+                  <p className="info-label">Device {device}</p>
+
+                  <ul className="screen-list">
+                    {entries.map((item, index) => (
+                      <li key={`${device}-${item.app_name}-${index}`} className="screen-list-item">
+                        <span>{item.app_name}</span>
+                        <strong>{Number(item.seconds || 0).toFixed(2)} seconds</strong>
+                      </li>
+                    ))}
+                  </ul>
+                </section>
               ))}
-            </ul>
+            </div>
           ) : (
             <p className="empty-state">No data synced yet.</p>
           )}

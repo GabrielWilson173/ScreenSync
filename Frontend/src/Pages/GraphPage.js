@@ -27,11 +27,23 @@ function formatDuration(totalSeconds) {
 
 function GraphPage() {
   const [appTotals, setAppTotals] = useState([]);
+  const [deviceTotals, setDeviceTotals] = useState([]);
   const [error, setError] = useState(null);
+  const [loading, setLoading] = useState(false);
 
   useEffect(() => {
+    refreshData();
+  }, []);
+
+  const refreshData = async () => {
+    setLoading(true);
     const fetchData = async () => {
       const token = localStorage.getItem('access_token');
+      if (!token) {
+        setError('No token found. Please log in again.');
+        setLoading(false);
+        return;
+      }
       try {
         const res = await fetch(`${API_URL}/Screentime/Get`, {
           method: 'GET',
@@ -42,10 +54,15 @@ function GraphPage() {
 
         const data = await res.json();
 
-        // Flatten grouped response
+        // Data is already grouped by device_num
+        // data = { "1": [...apps], "2": [...apps], ... }
+        // Aggregate seconds per app_name
         let flattened = [];
         if (Array.isArray(data)) flattened = data;
-        else if (data && typeof data === 'object') flattened = Object.values(data).flat();
+        else if (data && typeof data === 'object') {
+          // Extract all apps from all devices
+          flattened = Object.values(data).flat();
+        }
 
         // Aggregate seconds per app_name
         const totals = flattened.reduce((acc, entry) => {
@@ -58,30 +75,58 @@ function GraphPage() {
           .map(([app_name, seconds]) => ({ app_name, seconds }))
           .sort((a, b) => b.seconds - a.seconds);
 
-        setAppTotals(arr);
+        // Keep top 6 apps, group rest as MISC
+        let finalAppTotals = arr;
+        if (arr.length > 6) {
+          const topSix = arr.slice(0, 6);
+          const miscSeconds = arr.slice(6).reduce((sum, app) => sum + app.seconds, 0);
+          topSix.push({ app_name: 'MISC', seconds: miscSeconds });
+          finalAppTotals = topSix;
+        }
+
+        setAppTotals(finalAppTotals);
+
+        // Aggregate seconds per device
+        const deviceTotalsObj = {};
+        if (Array.isArray(data)) {
+          // If data is an array, aggregate by device_number property
+          data.forEach((entry) => {
+            const deviceNum = entry.device_number || 'Unknown';
+            deviceTotalsObj[deviceNum] = (deviceTotalsObj[deviceNum] || 0) + Number(entry.seconds || 0);
+          });
+        } else if (data && typeof data === 'object') {
+          // If data is an object keyed by device_num
+          Object.entries(data).forEach(([deviceNum, apps]) => {
+            if (Array.isArray(apps)) {
+              const deviceSeconds = apps.reduce((sum, app) => sum + Number(app.seconds || 0), 0);
+              deviceTotalsObj[deviceNum] = deviceSeconds;
+            }
+          });
+        }
+
+        const deviceArr = Object.entries(deviceTotalsObj)
+          .map(([device_num, seconds]) => ({ device_num, seconds }))
+          .sort((a, b) => b.seconds - a.seconds);
+
+        setDeviceTotals(deviceArr);
+        setError(null);
       } catch (e) {
+        console.error('GraphPage fetch error:', e);
         setError(e.message);
       }
+      setLoading(false);
     };
 
     fetchData();
-  }, []);
+  };
 
   const total = appTotals.reduce((s, it) => s + it.seconds, 0) || 0;
-  const dailyBudgetSeconds = 24 * 60 * 60;
-  const usedSeconds = total;
-  const remainingSeconds = Math.max(0, dailyBudgetSeconds - usedSeconds);
-  const usedForPie = Math.min(usedSeconds, dailyBudgetSeconds);
-  const usedRemainingSlices = [
-    { label: 'Time used', seconds: usedForPie, color: '#E15759' },
-    { label: 'Time remaining', seconds: remainingSeconds, color: '#59A14F' },
-  ];
-  const usedRemainingTotal = usedForPie + remainingSeconds;
+  const deviceTotal = deviceTotals.reduce((s, it) => s + it.seconds, 0) || 0;
 
   const colors = ['#4E79A7', '#F28E2B', '#E15759', '#76B7B2', '#59A14F', '#EDC948', '#B07AA1', '#FF9DA7'];
 
   let cumulative = 0;
-  let usedRemainingCumulative = 0;
+  let deviceCumulative = 0;
 
   return (
     <PageShell
@@ -96,6 +141,15 @@ function GraphPage() {
     >
       <section className="content-card graph-card">
         {error && <p className="error-text">{error}</p>}
+        {loading && <p style={{ color: '#666' }}>Loading chart data...</p>}
+        <button
+          className="secondary-button"
+          style={{ marginBottom: '16px', marginTop: 0 }}
+          onClick={refreshData}
+          disabled={loading}
+        >
+          {loading ? 'Refreshing...' : 'Refresh Data'}
+        </button>
 
         {appTotals.length === 0 ? (
           <p className="empty-state">No data available to show.</p>
@@ -128,26 +182,27 @@ function GraphPage() {
             </div>
 
             <div className="graph-wrap">
-              <h3>Used vs Remaining (24h)</h3>
+              <h3>By Device</h3>
               <svg viewBox="0 0 200 200" width="300" height="300" className="pie-chart">
-                {usedRemainingSlices.map((slice) => {
+                {deviceTotals.map((slice, i) => {
                   const value = slice.seconds;
-                  const startAngle = usedRemainingTotal === 0 ? 0 : (usedRemainingCumulative / usedRemainingTotal) * 360;
-                  usedRemainingCumulative += value;
-                  const endAngle = usedRemainingTotal === 0 ? 360 : (usedRemainingCumulative / usedRemainingTotal) * 360;
+                  const startAngle = deviceTotal === 0 ? 0 : (deviceCumulative / deviceTotal) * 360;
+                  deviceCumulative += value;
+                  const endAngle = deviceTotal === 0 ? 360 : (deviceCumulative / deviceTotal) * 360;
                   const path = describeArc(100, 100, 90, startAngle, endAngle);
-                  return <path key={slice.label} d={path} fill={slice.color} />;
+                  const color = colors[i % colors.length];
+                  return <path key={`device-${slice.device_num}`} d={path} fill={color} />;
                 })}
               </svg>
 
               <p className="graph-key-title">Color key</p>
               <ul className="legend">
-                {usedRemainingSlices.map((slice) => (
-                  <li key={slice.label}>
-                    <span className="legend-swatch" style={{ background: slice.color }} />
-                    <span className="legend-label">{slice.label}</span>
+                {deviceTotals.map((slice, i) => (
+                  <li key={`device-${slice.device_num}`}>
+                    <span className="legend-swatch" style={{ background: colors[i % colors.length] }} />
+                    <span className="legend-label">Device {slice.device_num}</span>
                     <strong className="legend-value">
-                      {usedRemainingTotal === 0 ? '0.0' : ((slice.seconds / usedRemainingTotal) * 100).toFixed(1)}% ({formatDuration(slice.seconds)})
+                      {deviceTotal === 0 ? '0.0' : ((slice.seconds / deviceTotal) * 100).toFixed(1)}% ({formatDuration(slice.seconds)})
                     </strong>
                   </li>
                 ))}

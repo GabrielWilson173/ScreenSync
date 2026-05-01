@@ -3,9 +3,10 @@ from fastapi.middleware.cors import CORSMiddleware
 from fastapi.security import OAuth2PasswordBearer
 from pydantic import BaseModel
 from pwdlib import PasswordHash
+import sqlite3
 from uuid import uuid4
 from jwt import encode, decode, PyJWTError
-from Database.Database_Access import registerUser, getUserInfo, insertScreenTime, getScreenTime, getDeviceNum
+from Database.Database_Access import registerUser, getUserInfo, getUsername, insertScreenTime, getScreenTime, getDeviceNum, updateUserPassword
 from datetime import datetime, timedelta, timezone
 
 import credit_system
@@ -30,6 +31,10 @@ class User(BaseModel):
 class ScreenTimeData(BaseModel):
     data: dict[str,float]
     hwid: str
+
+class ChangePasswordData(BaseModel):
+    current_password: str
+    new_password: str
 
 #Use a password hashing algorithm that automatically salts the hash to prevent brute force attacks on passwords
 password_hasher = PasswordHash.recommended()
@@ -105,6 +110,41 @@ async def Login(user: User):
             raise HTTPException(status_code=401, detail="Invalid username or password")
     except:
         raise HTTPException(status_code=401, detail="Invalid username or password")
+
+@app.get("/User/Get")
+async def Get_User(uuid = Depends(Get_Current_User_Uuid)):
+    try:
+        username = getUsername(uuid)
+        return {"username": username}
+    except:
+        raise HTTPException(status_code=404, detail="User not found")
+
+@app.post("/Password/Change/")
+async def Change_Password(password_data: ChangePasswordData, uuid = Depends(Get_Current_User_Uuid)):
+    try:
+        with sqlite3.connect("Database/ScreenTimeDB.db") as conn:
+            conn.row_factory = sqlite3.Row
+            cursor = conn.cursor()
+            cursor.execute("SELECT username, password_hash FROM Users WHERE uuid=?", (uuid,))
+            user = cursor.fetchone()
+
+        if not user:
+            raise HTTPException(status_code=404, detail="User not found")
+
+        if not password_hasher.verify(password_data.current_password, user["password_hash"]):
+            raise HTTPException(status_code=401, detail="Current password is incorrect")
+
+        if len(password_data.new_password) < 8:
+            raise HTTPException(status_code=400, detail="New password must be at least 8 characters long")
+
+        hashed_password = password_hasher.hash(password_data.new_password)
+        updateUserPassword(uuid, hashed_password)
+
+        return {"message": f"Password updated for {user['username']}"}
+    except HTTPException:
+        raise
+    except Exception:
+        raise HTTPException(status_code=400, detail="Could not update password")
     
 @app.post("/Screentime/Add")
 async def Add_Screentime(screentime_data: ScreenTimeData, uuid = Depends(Get_Current_User_Uuid)):

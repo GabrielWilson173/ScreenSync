@@ -27,6 +27,24 @@ def getUserInfo(username: str):
         else:
             raise Exception("User not found")
 
+def getUsername(uuid: str):
+    with sqlite3.connect(DB_PATH) as conn:
+        conn.row_factory = sqlite3.Row
+        cursor = conn.cursor()
+        cursor.execute("SELECT username FROM Users WHERE uuid=?", (uuid,))
+        user = cursor.fetchone()
+
+        if user:
+            return user["username"]
+        else:
+            raise Exception("User not found")
+
+def updateUserPassword(uuid: str, hashed_password: str):
+    with sqlite3.connect(DB_PATH) as conn:
+        cursor = conn.cursor()
+        cursor.execute("UPDATE Users SET password_hash=? WHERE uuid=?", (hashed_password, uuid))
+        conn.commit()
+
 def insertScreenTime(uuid: str, device_num:int, app_name: str, screentime: float):
     with sqlite3.connect(DB_PATH) as conn:
         cursor = conn.cursor()
