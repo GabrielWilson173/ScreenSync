@@ -64,6 +64,8 @@ function ProfilePage({ onPasswordChange, onLogout }) {
       navTitle="Quick paths"
       navLinks={[
         { label: 'Home', href: '#/home' },
+        { label: 'Profile', href: '#/profile', active: true },
+        { label: 'Graph', href: '#/graph' },
       ]}
     >
       <section className="content-card profile-card">

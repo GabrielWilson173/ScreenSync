@@ -5,11 +5,12 @@ import LoginPage from './Pages/LoginPage';
 import ProfilePage from './Pages/ProfilePage';
 import SignupPage from './Pages/SignupPage';
 import WelcomePage from './Pages/WelcomePage';
+import GraphPage from './Pages/GraphPage';
 import { API_URL } from "./config"
 
 function App() {
   const [hashRoute, setHashRoute] = useState(window.location.hash || '#/welcome');
-  const isDashboardRoute = hashRoute === '#/home' || hashRoute === '#/profile';
+  const isDashboardRoute = hashRoute === '#/home' || hashRoute === '#/profile' || hashRoute === '#/graph';
 
   useEffect(() => {
     if (!window.location.hash) {
@@ -121,6 +122,10 @@ function App() {
 
     if (hashRoute === '#/home') {
       return <HomePage />;
+    }
+
+    if (hashRoute === '#/graph') {
+      return <GraphPage />;
     }
 
     if (hashRoute === '#/profile') {

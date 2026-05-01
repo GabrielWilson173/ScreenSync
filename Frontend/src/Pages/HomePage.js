@@ -23,7 +23,26 @@ function HomePage() {
         }
 
         const data = await response.json();
-        setScreenTimeData(data);
+        // Backend may return grouped data like { deviceNum: [entries] }
+        // Normalize to a flat array for the UI to consume.
+        let flattened = [];
+
+        if (Array.isArray(data)) {
+          flattened = data;
+        } else if (data && typeof data === 'object') {
+          try {
+            flattened = Object.values(data).flat();
+          } catch (e) {
+            // Fallback: if values are not arrays, attempt to collect entries
+            flattened = Object.values(data).reduce((acc, v) => {
+              if (Array.isArray(v)) return acc.concat(v);
+              if (v && typeof v === 'object') return acc.concat(v);
+              return acc;
+            }, []);
+          }
+        }
+
+        setScreenTimeData(flattened);
       } catch (err) {
         setError(err.message);
       }
@@ -43,7 +62,9 @@ function HomePage() {
       description="A quick view of what has been captured from your synced apps."
       navTitle="Quick paths"
       navLinks={[
+        { label: 'Home', href: '#/home', active: true },
         { label: 'Profile', href: '#/profile' },
+        { label: 'Graph', href: '#/graph' },
       ]}
     >
       <section className="content-card stats-card">
