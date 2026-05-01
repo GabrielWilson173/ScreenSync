@@ -125,8 +125,25 @@ function GraphPage() {
 
   const colors = ['#4E79A7', '#F28E2B', '#E15759', '#76B7B2', '#59A14F', '#EDC948', '#B07AA1', '#FF9DA7'];
 
-  let cumulative = 0;
-  let deviceCumulative = 0;
+  // Pre-calculate angles for app slices
+  const appSlices = appTotals.map((slice, i) => {
+    let startAngle = 0;
+    for (let j = 0; j < i; j++) {
+      startAngle += (appTotals[j].seconds / total) * 360;
+    }
+    const endAngle = startAngle + (slice.seconds / total) * 360;
+    return { ...slice, startAngle, endAngle, color: colors[i % colors.length] };
+  });
+
+  // Pre-calculate angles for device slices
+  const deviceSlices = deviceTotals.map((slice, i) => {
+    let startAngle = 0;
+    for (let j = 0; j < i; j++) {
+      startAngle += (deviceTotals[j].seconds / deviceTotal) * 360;
+    }
+    const endAngle = startAngle + (slice.seconds / deviceTotal) * 360;
+    return { ...slice, startAngle, endAngle, color: colors[i % colors.length] };
+  });
 
   return (
     <PageShell
@@ -158,22 +175,17 @@ function GraphPage() {
             <div className="graph-wrap">
               <h3>By App</h3>
               <svg viewBox="0 0 200 200" width="300" height="300" className="pie-chart">
-                {appTotals.map((slice, i) => {
-                  const value = slice.seconds;
-                  const startAngle = (cumulative / total) * 360;
-                  cumulative += value;
-                  const endAngle = (cumulative / total) * 360;
-                  const path = describeArc(100, 100, 90, startAngle, endAngle);
-                  const color = colors[i % colors.length];
-                  return <path key={slice.app_name} d={path} fill={color} />;
+                {appSlices.map((slice) => {
+                  const path = describeArc(100, 100, 90, slice.startAngle, slice.endAngle);
+                  return <path key={slice.app_name} d={path} fill={slice.color} />;
                 })}
               </svg>
 
               <p className="graph-key-title">Color key</p>
               <ul className="legend">
-                {appTotals.map((slice, i) => (
+                {appSlices.map((slice) => (
                   <li key={slice.app_name}>
-                    <span className="legend-swatch" style={{ background: colors[i % colors.length] }} />
+                    <span className="legend-swatch" style={{ background: slice.color }} />
                     <span className="legend-label">{slice.app_name}</span>
                     <strong className="legend-value">{((slice.seconds / total) * 100).toFixed(1)}% ({formatDuration(slice.seconds)})</strong>
                   </li>
@@ -184,22 +196,17 @@ function GraphPage() {
             <div className="graph-wrap">
               <h3>By Device</h3>
               <svg viewBox="0 0 200 200" width="300" height="300" className="pie-chart">
-                {deviceTotals.map((slice, i) => {
-                  const value = slice.seconds;
-                  const startAngle = deviceTotal === 0 ? 0 : (deviceCumulative / deviceTotal) * 360;
-                  deviceCumulative += value;
-                  const endAngle = deviceTotal === 0 ? 360 : (deviceCumulative / deviceTotal) * 360;
-                  const path = describeArc(100, 100, 90, startAngle, endAngle);
-                  const color = colors[i % colors.length];
-                  return <path key={`device-${slice.device_num}`} d={path} fill={color} />;
+                {deviceSlices.map((slice) => {
+                  const path = describeArc(100, 100, 90, slice.startAngle, slice.endAngle);
+                  return <path key={`device-${slice.device_num}`} d={path} fill={slice.color} />;
                 })}
               </svg>
 
               <p className="graph-key-title">Color key</p>
               <ul className="legend">
-                {deviceTotals.map((slice, i) => (
+                {deviceSlices.map((slice) => (
                   <li key={`device-${slice.device_num}`}>
-                    <span className="legend-swatch" style={{ background: colors[i % colors.length] }} />
+                    <span className="legend-swatch" style={{ background: slice.color }} />
                     <span className="legend-label">Device {slice.device_num}</span>
                     <strong className="legend-value">
                       {deviceTotal === 0 ? '0.0' : ((slice.seconds / deviceTotal) * 100).toFixed(1)}% ({formatDuration(slice.seconds)})
