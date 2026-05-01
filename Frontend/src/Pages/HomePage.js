@@ -1,13 +1,12 @@
 import { useState, useEffect } from 'react';
+import PageShell from '../components/PageShell';
 
 function HomePage() {
-  // 1. Create state to hold the data and loading status
   const [screenTimeData, setScreenTimeData] = useState([]);
   const [error, setError] = useState(null);
 
   useEffect(() => {
     const fetchData = async () => {
-      // Get the token you saved during Login (usually in localStorage)
       const token = localStorage.getItem("access_token");
 
       try {
@@ -24,36 +23,59 @@ function HomePage() {
         }
 
         const data = await response.json();
-        setScreenTimeData(data); // 2. Save the list of dicts to state
+        setScreenTimeData(data);
       } catch (err) {
         setError(err.message);
       }
     };
 
     fetchData();
-  }, []); // Empty array means this runs once when the component mounts
+  }, []);
+
+  const totalSeconds = screenTimeData.reduce(
+    (sum, item) => sum + Number(item.seconds || 0),
+    0
+  );
 
   return (
-    <main className="home-page">
-      <h1 className="home-title">Your Screen Time</h1>
+    <PageShell
+      title="Your Screen Time"
+      description="A quick view of what has been captured from your synced apps."
+      navTitle="Quick paths"
+      navLinks={[
+        { label: 'Profile', href: '#/profile' },
+      ]}
+    >
+      <section className="content-card stats-card">
+        <div className="stats-row">
+          <div>
+            <span className="info-label">Tracked apps</span>
+            <strong>{screenTimeData.length}</strong>
+          </div>
+          <div>
+            <span className="info-label">Total time</span>
+            <strong>{totalSeconds.toFixed(2)} seconds</strong>
+          </div>
+        </div>
 
-      {/* 3. Handle the UI based on state */}
-      {error && <p style={{ color: 'red' }}>{error}</p>}
+        {error && <p className="error-text">{error}</p>}
 
-      <div className="data-container">
-        {screenTimeData.length > 0 ? (
-          <ul>
-            {screenTimeData.map((item, index) => (
-              <li key={index}>
-                <strong>{item.app_name}</strong>: {item.seconds.toFixed(2)} seconds
-              </li>
-            ))}
-          </ul>
-        ) : (
-          <p>No data synced yet.</p>
-        )}
-      </div>
-    </main>
+        <div className="data-container">
+          {screenTimeData.length > 0 ? (
+            <ul className="screen-list">
+              {screenTimeData.map((item, index) => (
+                <li key={index} className="screen-list-item">
+                  <span>{item.app_name}</span>
+                  <strong>{Number(item.seconds || 0).toFixed(2)} seconds</strong>
+                </li>
+              ))}
+            </ul>
+          ) : (
+            <p className="empty-state">No data synced yet.</p>
+          )}
+        </div>
+      </section>
+    </PageShell>
   );
 }
 

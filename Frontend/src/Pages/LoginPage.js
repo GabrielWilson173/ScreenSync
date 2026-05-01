@@ -33,6 +33,9 @@ function LoginPage({ onLogin }) {
           Login
         </button>
       </form>
+      <p className="page-switch-text">
+        New here? <a className="secondary-link" href="#/signup">Create an account</a>
+      </p>
     </main>
   );
 }
